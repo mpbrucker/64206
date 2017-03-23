@@ -84,13 +84,9 @@ def find_eigen_faces(faces, num):
     """
     imgs_stand = get_standardized_faces(faces)  # Subtract the mean from the faces
     L = np.divide(imgs_stand, 246**(1/2))  # Build the matrix of standardized faces
-    covar = np.dot(L.T, L)  # Find the covariance matrix of the faces
-    val, vec = np.linalg.eig(covar)  # Gets the eigenvalues and vectors of the covariance matrix
+    vec,val,_ = np.linalg.svd(L, full_matrices=False)
     val = np.real(val)
-    vec = np.real(vec)
-    u = np.dot(imgs_stand, vec)
-    for idx, col in enumerate(u.T):
-        u[:, idx] = col/np.linalg.norm(col)
+    u = np.real(vec)
     sig_eigenfaces = u[:, 0:num]  # Take the num most significant eigenfaces
     return sig_eigenfaces
 
@@ -111,14 +107,21 @@ def get_face_space_distance(face, eigen_faces):
 
 if __name__ == '__main__':
     faces = parse_faces()
+    print("parsed")
     eigen_faces = find_eigen_faces(faces, 200)
+    print("eigen found")
     mean_face = get_mean_face(faces)
+    print("mean found")
     consts = get_face_projections(get_standardized_faces(faces), eigen_faces)
 
-    test_faces_easy = parse_faces('faces_test_hard')
-    test_consts = get_face_projections(get_standardized_faces(test_faces_easy, mean_face), eigen_faces)
-    test_labels = get_labels(data_type='names_test_hard')
+    print("consts")
 
+    test_faces_easy = parse_faces('faces_test_hard')
+    print("parced")
+    test_consts = get_face_projections(get_standardized_faces(test_faces_easy, mean_face), eigen_faces)
+    print("test_cosnts")
+    test_labels = get_labels(data_type='names_test_hard')
+    print("test_labels")
     correct = 0
 
     for idx, face in enumerate(test_consts.T):
