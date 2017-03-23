@@ -7,6 +7,7 @@ Authors: Matt Brucker and Henry Rachootin
 import numpy as np  # Does matrix things
 import scipy.io as io
 import matplotlib.pyplot as plt
+import time
 
 
 def parse_faces(data='faces_train'):
@@ -84,7 +85,7 @@ def find_eigen_faces(faces, num):
     """
     imgs_stand = get_standardized_faces(faces)  # Subtract the mean from the faces
     L = np.divide(imgs_stand, 246**(1/2))  # Build the matrix of standardized faces
-    vec,val,_ = np.linalg.svd(L, full_matrices=False)
+    vec, val, _ = np.linalg.svd(L, full_matrices=False)
     val = np.real(val)
     u = np.real(vec)
     sig_eigenfaces = u[:, 0:num]  # Take the num most significant eigenfaces
@@ -106,31 +107,27 @@ def get_face_space_distance(face, eigen_faces):
 
 
 if __name__ == '__main__':
+    t1 = time.time()
     faces = parse_faces()
-    print("parsed")
-    eigen_faces = find_eigen_faces(faces, 200)
-    print("eigen found")
+    eigen_faces = find_eigen_faces(faces, 20)
+    print("{} second training time".format(time.time() - t1))
+    t2 = time.time()
     mean_face = get_mean_face(faces)
-    print("mean found")
     consts = get_face_projections(get_standardized_faces(faces), eigen_faces)
 
-    print("consts")
 
     test_faces_easy = parse_faces('faces_test_hard')
-    print("parced")
     test_consts = get_face_projections(get_standardized_faces(test_faces_easy, mean_face), eigen_faces)
-    print("test_cosnts")
     test_labels = get_labels(data_type='names_test_hard')
-    print("test_labels")
     correct = 0
 
     for idx, face in enumerate(test_consts.T):
         guess = get_closest_face(face[:, None], consts)
         if test_labels[idx] == guess:
             correct += 1
-        print(idx)
     correct /= test_faces_easy.shape[1]
     print("Correct: ", correct)
+    print("{} second testing time".format(time.time() - t2))
     face_reconstruct = np.dot(eigen_faces, test_consts[:,1])[:,None] + mean_face
     # test_face = get_face_projections(get_standardized_faces(faces)[:,1], eigen_faces)
     # test_result = get_closest_face(test_face, consts)
