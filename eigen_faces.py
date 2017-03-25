@@ -6,16 +6,21 @@ Authors: Matt Brucker and Henry Rachootin
 
 import numpy as np  # Does matrix things
 import scipy.io as io
+import scipy.sparse.linalg as sclin
+import scipy.ndimage as ndim
 import matplotlib.pyplot as plt
 import time
 
-
-def parse_faces(data='faces_train'):
+def parse_faces(data='faces_train', resample = 1):
     faces = io.loadmat('face_detect.mat')
     imgs = faces[data]
-    all_train = np.reshape(imgs, (65536, imgs.shape[2]))
+    if(resample != 1):
+        imgs = resample_images(imgs, resample)
+    all_train = np.reshape(imgs, (imgs.shape[0]*imgs.shape[1], imgs.shape[2]))
     return all_train
 
+def resample_images(images, scale):
+    return ndim.zoom(images,(scale,scale,1))
 
 def get_unique_labels(data='names_train'):
     labels = get_labels(data)
@@ -60,6 +65,7 @@ def get_closest_face(subspace_face, base_faces):
     return min(dists, key=dists.get)
 
 
+
 def get_mean_face(face_set):
     """
     Returns the mean face of a given set of faces.
@@ -91,6 +97,38 @@ def find_eigen_faces(faces, num):
     sig_eigenfaces = u[:, 0:num]  # Take the num most significant eigenfaces
     return sig_eigenfaces
 
+def find_fisher_faces(faces, num):
+    uniq_labels = get_unique_labels()
+    all_labels = get_labels()
+    class_labels = [uniq_labels.index(label) for label in all_labels]
+    num_classes = len(uniq_labels)
+    class_size = int(faces.shape[1]/num_classes)
+    face_size = faces.shape[0]
+    classes = np.array( #rank 3 tensor of images, arrainged by class
+            [
+                np.array(
+                    [face for index,face in enumerate(faces.T) if class_labels[index] == c] #list of images in class c
+                ).T
+                for c in range(num_classes)
+            ]
+        )
+    class_means = np.mean(classes, axis = 2).T#mean faces of each class
+    mean_face = np.mean(faces, axis = 1)#mean faces
+    mean_face = mean_face.reshape((face_size,1))
+    print("found means")
+    L = (class_means - mean_face)
+    Sb = class_size*np.dot(L,L.T)
+    Sw = np.zeros((face_size,face_size))
+    for i in range(num_classes):
+        Li = classes[i,:,:] - class_means[:,i].reshape((face_size,1))
+        Sw += np.dot(Li,Li.T)
+    print("found the matricies")
+    M = np.dot(np.linalg.inv(Sw),Sb)
+    print("found the inverse")
+    vals,vecs = np.linalg.eig(M)
+    print(np.real(vals))
+    quit()
+
 
 def get_face_projections(faces, eigen_faces):
     return np.dot(eigen_faces.T, faces)
@@ -109,8 +147,11 @@ def get_face_space_distance(face, eigen_faces):
 if __name__ == '__main__':
     t1 = time.time()
     faces = parse_faces()
-    eigen_faces = find_eigen_faces(faces, 20)
-    print("{} second training time".format(time.time() - t1))
+    faces_small = parse_faces(resample = 1/9)
+    print("done respampling")
+    eigen_faces = find_fisher_faces(faces_small,40)
+    #eigen_faces = find_eigen_faces(faces, 40)
+    #print("{} second training time".format(time.time() - t1))
     t2 = time.time()
     mean_face = get_mean_face(faces)
     consts = get_face_projections(get_standardized_faces(faces), eigen_faces)
