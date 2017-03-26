@@ -103,7 +103,7 @@ def find_fisher_faces(faces, num):
     class_labels = [uniq_labels.index(label) for label in all_labels]
     num_classes = len(uniq_labels)
     class_size = int(faces.shape[1]/num_classes)
-    face_size, num_faces = faces.shape
+    _, num_faces = faces.shape
     eigen_faces = find_eigen_faces(faces,num_faces-num_classes)
 
 
@@ -136,7 +136,7 @@ def find_fisher_faces(faces, num):
     print("found the inverse")
     vals,vecs = np.linalg.eig(M)
     lda_vecs = vecs[:,0:num].real
-    return np.dot(lda_vecs,eigen_faces.T).T
+    return np.dot(lda_vecs.T,eigen_faces.T).T
 
 
 
@@ -159,33 +159,33 @@ if __name__ == '__main__':
     faces = parse_faces()
     faces_small = parse_faces(resample = 1)
     print("done respampling")
-    eigen_faces = find_fisher_faces(faces_small,10)
+    eigen_faces = find_fisher_faces(faces_small,200)
     #eigen_faces = find_eigen_faces(faces, 40)
     #print("{} second training time".format(time.time() - t1))
     t2 = time.time()
     mean_face = get_mean_face(faces)
 
 
-    # consts = get_face_projections(get_standardized_faces(faces), eigen_faces)
-    #
-    #
-    test_faces_easy = parse_faces('faces_test_easy')
+    consts = get_face_projections(get_standardized_faces(faces), eigen_faces)
+
+
+    test_faces_easy = parse_faces('faces_test_hard')
     test_consts = get_face_projections(get_standardized_faces(test_faces_easy, mean_face), eigen_faces)
-    test_labels = get_labels(data_type='names_test_easy')
-    # correct = 0
-    #
-    # for idx, face in enumerate(test_consts.T):
-    #     guess = get_closest_face(face[:, None], consts)
-    #     if test_labels[idx] == guess:
-    #         correct += 1
-    # correct /= test_faces_easy.shape[1]
-    # print("Correct: ", correct)
-    # print("{} second testing time".format(time.time() - t2))
+    test_labels = get_labels(data_type='names_test_hard')
+    correct = 0
+
+    for idx, face in enumerate(test_consts.T):
+        guess = get_closest_face(face[:, None], consts)
+        if test_labels[idx] == guess:
+            correct += 1
+    correct /= test_faces_easy.shape[1]
+    print("Correct: ", correct)
+    print("{} second testing time".format(time.time() - t2))
     face_reconstruct = np.dot(eigen_faces, test_consts[:,1])[:,None] + mean_face
     test_face = get_face_projections(get_standardized_faces(faces)[:,6], eigen_faces)
     # test_result = get_closest_face(test_face, consts)
     # print(test_result)
 
-    face = np.reshape(face_reconstruct, (256, 256))
+    face = np.reshape(eigen_faces[:,2], (256, 256))
     plt.imshow(face,cmap="gray")
     plt.show()
